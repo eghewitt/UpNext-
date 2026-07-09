@@ -1,0 +1,1892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UpNext — Stop Scrolling, Start Exploring.</title>
+<meta name="description" content="UpNext finds the best possible thing to do right now, based on your mood, energy, time, budget, and location." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='6' width='52' height='52' rx='14' fill='%230a0a0f' stroke='%236C8CFF' stroke-width='4'/%3E%3Cpath d='M20 24h16v-6l12 12-12 12v-6H24v10h-4V24z' fill='%236C8CFF'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   UpNext — style.css
+   Token system:
+   --bg:        #0A0A0F  near-black base
+   --surface:   #15151C  card surface
+   --surface-2: #1D1D26  raised surface
+   --text:      #F3F3F6
+   --muted:     #9A9AA8
+   --accent / --accent2: set dynamically by JS — soft blue/purple
+                pre-questionnaire, mood color after results.
+   Display face: Space Grotesk (headlines, brand, numbers)
+   Body face:    Inter (everything else)
+   ============================================================ */
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #15151c;
+  --surface-2: #1d1d26;
+  --border: #2a2a35;
+  --text: #f3f3f6;
+  --muted: #9a9aa8;
+  --accent: #6c8cff;
+  --accent2: #a78bfa;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  scroll-behavior: smooth;
+}
+
+body { overflow-x: hidden; }
+
+#bg-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 15% -5%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 60%),
+    radial-gradient(50% 45% at 100% 10%, color-mix(in srgb, var(--accent2) 22%, transparent), transparent 60%);
+  transition: background 1.1s ease;
+}
+
+#app { position: relative; z-index: 1; }
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+
+p { line-height: 1.55; color: var(--text); margin: 0 0 12px; }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+
+button { font-family: var(--font-body); cursor: pointer; }
+
+/* ---------- screens ---------- */
+.screen {
+  display: none;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+  animation: fadeIn 0.4s ease;
+}
+.screen.active { display: block; }
+.panel-narrow { max-width: 520px; margin: 0 auto; }
+.panel-wide { max-width: 880px; margin: 0 auto; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ---------- buttons ---------- */
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.btn:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-color: transparent;
+  color: #0a0a0f;
+}
+.btn-secondary { background: var(--surface-2); }
+.btn-ghost { background: transparent; }
+.btn-small { padding: 6px 14px; font-size: 0.82rem; }
+.btn-large { padding: 14px 28px; font-size: 1rem; display: inline-flex; align-items: center; gap: 6px; }
+.btn-block { width: 100%; }
+
+/* ---------- home / brand ---------- */
+.topbar { text-align: center; padding: 20px 0 8px; }
+.brand { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
+.brand-mark { width: 34px; height: 34px; }
+.brand-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.7rem;
+  color: var(--text);
+}
+.brand-slogan { color: var(--muted); font-size: 0.95rem; margin-top: 2px; }
+
+.intro-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  margin: 24px 0;
+  text-align: left;
+}
+.intro-card h1 { font-size: 1.6rem; }
+.intro-card p { color: var(--muted); }
+.intro-card em { color: var(--text); font-style: normal; font-weight: 600; }
+
+.home-search {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.search-bar { display: flex; gap: 10px; margin-top: 10px; }
+.search-bar input {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 12px 18px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.search-bar input:focus { outline: 2px solid var(--accent); }
+
+.home-section { margin-bottom: 24px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+
+.empty-hint {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.list-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.list-item .li-main { flex: 1; min-width: 0; }
+.list-item .li-title { font-weight: 600; }
+.list-item .li-meta { color: var(--muted); font-size: 0.82rem; }
+.list-item .li-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.li-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-right: 6px;
+}
+.li-tag.done { color: #4ade80; background: rgba(74, 222, 128, 0.14); }
+
+.home-footer { text-align: center; margin-top: 32px; }
+
+/* ---------- permissions ---------- */
+.permission-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 6px 14px;
+  margin-bottom: 14px;
+  position: relative;
+}
+.permission-icon { font-size: 1.6rem; grid-row: span 2; }
+.permission-copy h3 { margin: 0 0 2px; font-size: 1.05rem; }
+.permission-copy p { color: var(--muted); font-size: 0.88rem; margin: 0; }
+.permission-actions { grid-column: 2; display: flex; gap: 8px; margin-top: 8px; }
+.permission-status {
+  grid-column: 2;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.permission-status.granted { color: #4ade80; }
+.permission-status.denied { color: #f4a261; }
+
+/* ---------- questionnaire ---------- */
+.progress-track { height: 4px; background: var(--surface-2); border-radius: 4px; margin-bottom: 28px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); width: 0%; transition: width 0.35s ease; }
+
+.q-step { display: flex; flex-direction: column; gap: 26px; }
+.q-block h2 { font-size: 1.15rem; }
+.q-block .q-help { color: var(--muted); font-size: 0.85rem; margin-top: -6px; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+}
+.chip:hover { border-color: var(--accent); }
+.chip.selected {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #0a0a0f;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.stepper { display: flex; align-items: center; gap: 16px; margin-top: 10px; }
+.stepper button {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  font-size: 1.2rem; font-weight: 700;
+}
+.stepper button:hover { border-color: var(--accent); }
+.stepper-value { font-family: var(--font-display); font-size: 1.6rem; min-width: 44px; text-align: center; }
+.stepper-scale { color: var(--muted); font-size: 0.78rem; }
+
+.interest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+.interest-chip {
+  border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm);
+  padding: 10px; text-align: center; font-size: 0.85rem;
+}
+.interest-chip .emoji { font-size: 1.3rem; display: block; margin-bottom: 4px; }
+.interest-chip.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+
+.q-nav { display: flex; justify-content: space-between; margin-top: 8px; }
+
+/* ---------- loading ---------- */
+.loading-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 18px; text-align: center; }
+.loading-spinner {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 3px solid var(--surface-2); border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- results / cards ---------- */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+.rec-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.rec-card::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+}
+.rec-rank {
+  position: absolute; top: 14px; right: 16px;
+  font-family: var(--font-display); font-weight: 700; color: var(--muted); font-size: 0.8rem;
+}
+.rec-type-tag {
+  align-self: flex-start;
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent);
+  padding: 3px 9px; border-radius: 6px;
+}
+.rec-card h3 { font-size: 1.15rem; margin-top: 4px; }
+.rec-desc { color: var(--muted); font-size: 0.9rem; }
+.rec-why { font-size: 0.85rem; background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 12px; }
+.rec-why b { color: var(--accent); }
+.rec-meta-row { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.82rem; color: var(--muted); }
+.rec-meta-row span { display: inline-flex; align-items: center; gap: 4px; }
+.rec-score-pill {
+  font-size: 0.72rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; align-self: flex-start;
+}
+.rec-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.rec-links a { font-size: 0.8rem; color: var(--accent); text-decoration: none; border-bottom: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent); }
+.rec-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.rec-photo-placeholder {
+  height: 88px; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 35%, var(--surface-2)), color-mix(in srgb, var(--accent2) 35%, var(--surface-2)));
+  display: flex; align-items: center; justify-content: center; font-size: 1.8rem;
+}
+
+/* ---------- modals ---------- */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(5,5,8,0.7);
+  align-items: center; justify-content: center; z-index: 50; padding: 20px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 24px; width: 100%; max-width: 360px;
+}
+.modal label { display: block; margin-bottom: 12px; font-size: 0.85rem; color: var(--muted); }
+.modal input { width: 100%; margin-top: 6px; padding: 9px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+.feedback-row { display: flex; gap: 10px; margin-top: 8px; }
+.feedback-btn {
+  flex: 1; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-md);
+  padding: 14px 8px; text-align: center; font-size: 1.4rem; color: var(--text);
+}
+.feedback-btn span { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 6px; }
+.feedback-btn:hover { border-color: var(--accent); }
+
+/* ---------- focus & motion ---------- */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 560px) {
+  .intro-card, .home-search { padding: 20px; }
+  .permission-card { grid-template-columns: 32px 1fr; }
+  .brand-name { font-size: 1.4rem; }
+}
+
+</style>
+</head>
+<body>
+<div id="bg-glow" aria-hidden="true"></div>
+
+<div id="app">
+
+  <!-- ============ HOME / HUB SCREEN ============ -->
+  <section id="screen-home" class="screen active">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M40 14a18 18 0 1 0 6 24.5c.6-1.2 1-2.5 1-3.8 0-.6-.5-1-1.1-.9-.6.1-1 .6-1.1 1.2-1.6 6.7-8.1 11-15 9.7-7.2-1.4-11.9-8.4-10.5-15.6C20.7 22 27.7 17.3 34.9 18.7c5.5 1.1 9.4 5.8 9.6 11.2.1 2.8-2 5.1-4.7 5.2-2.2.1-4-1.5-4.3-3.6" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
+          <text x="30" y="34" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="16" fill="currentColor">U</text>
+        </svg>
+        <span class="brand-name">pNext</span>
+      </div>
+      <p class="brand-slogan">Stop Scrolling, Start Exploring.</p>
+    </header>
+
+    <section class="intro-card">
+      <h1>Bored right now? Let's fix that.</h1>
+      <p>
+        UpNext doesn't give you random suggestions. It reads your current situation — mood, energy,
+        who you're with, how much time and money you've got, the weather, and where you are — and
+        finds the single best thing you can realistically go do <em>right now</em>. Answer a short,
+        conversational questionnaire and get a ranked list of activities built for this exact moment,
+        not a generic list you'd get anywhere else.
+      </p>
+      <button class="btn btn-primary btn-large" data-action="begin-questionnaire">Start Questionnaire →</button>
+    </section>
+
+    <section class="home-search">
+      <h2>Quick Search</h2>
+      <p class="muted">Skip the questionnaire — type what you're after and get fast ideas.</p>
+      <form id="quick-search-form" class="search-bar">
+        <input id="quick-search-input" type="text" placeholder="Try “coffee shops”, “things to do indoors”, “creative hobbies”…" autocomplete="off" />
+        <button type="submit" class="btn btn-secondary">Search</button>
+      </form>
+    </section>
+
+    <section class="home-section" id="calendar-section">
+      <div class="section-head">
+        <h2>Saved &amp; Scheduled</h2>
+        <span class="muted small">This session only</span>
+      </div>
+      <div id="calendar-list" class="stack"></div>
+    </section>
+
+    <section class="home-section" id="recent-section">
+      <div class="section-head">
+        <h2>Recently Completed</h2>
+      </div>
+      <div id="recent-list" class="stack"></div>
+    </section>
+
+    <footer class="home-footer">
+      <p class="muted small">UpNext is a prototype. Place data is simulated for this demo — see README for wiring up the real Google Places API.</p>
+    </footer>
+  </section>
+
+  <!-- ============ PERMISSIONS SCREEN ============ -->
+  <section id="screen-permissions" class="screen">
+    <div class="panel-narrow">
+      <h1>Two quick permissions</h1>
+      <p class="muted">UpNext works fully without these — but they help it tailor recommendations even further.</p>
+
+      <div class="permission-card">
+        <div class="permission-icon">📍</div>
+        <div class="permission-copy">
+          <h3>Location</h3>
+          <p>Finds real nearby places, calculates distance, and powers "Get Me There" directions.</p>
+        </div>
+        <div class="permission-actions" data-perm="location">
+          <button class="btn btn-small btn-primary" data-action="grant" data-perm="location">Allow</button>
+          <button class="btn btn-small btn-ghost" data-action="deny" data-perm="location">Not now</button>
+        </div>
+        <span class="permission-status" id="status-location">Not decided</span>
+      </div>
+
+      <div class="permission-card">
+        <div class="permission-icon">🌦️</div>
+        <div class="permission-copy">
+          <h3>Weather</h3>
+          <p>Avoids suggesting outdoor activities when conditions are poor.</p>
+        </div>
+        <div class="permission-actions" data-perm="weather">
+          <button class="btn btn-small btn-primary" data-action="grant" data-perm="weather">Allow</button>
+          <button class="btn btn-small btn-ghost" data-action="deny" data-perm="weather">Not now</button>
+        </div>
+        <span class="permission-status" id="status-weather">Not decided</span>
+      </div>
+
+      <button class="btn btn-primary btn-large" data-action="continue-to-questionnaire" id="permissions-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ============ QUESTIONNAIRE SCREEN ============ -->
+  <section id="screen-questionnaire" class="screen">
+    <div class="panel-narrow">
+      <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+      <div id="question-steps"></div>
+    </div>
+  </section>
+
+  <!-- ============ LOADING SCREEN ============ -->
+  <section id="screen-loading" class="screen">
+    <div class="loading-wrap">
+      <div class="loading-spinner"></div>
+      <p id="loading-text">Reading the room…</p>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS SCREEN ============ -->
+  <section id="screen-results" class="screen">
+    <div class="panel-wide">
+      <div class="section-head">
+        <div>
+          <h1 id="results-title">Right now, for you</h1>
+          <p class="muted" id="results-subtitle"></p>
+        </div>
+        <button class="btn btn-ghost" data-action="go-home">← Home</button>
+      </div>
+      <div id="results-list" class="card-grid"></div>
+    </div>
+  </section>
+
+  <!-- ============ QUICK SEARCH RESULTS SCREEN ============ -->
+  <section id="screen-quick-results" class="screen">
+    <div class="panel-wide">
+      <div class="section-head">
+        <div>
+          <h1>Quick ideas for “<span id="quick-query-label"></span>”</h1>
+          <p class="muted">Simple matches based on your search — for full personalization, try the questionnaire.</p>
+        </div>
+        <button class="btn btn-ghost" data-action="go-home">← Home</button>
+      </div>
+      <div id="quick-results-list" class="card-grid"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Schedule modal -->
+<div id="schedule-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Schedule this activity</h3>
+    <label>Date <input type="date" id="schedule-date" /></label>
+    <label>Time <input type="time" id="schedule-time" /></label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="close-modal">Cancel</button>
+      <button class="btn btn-primary" data-action="confirm-schedule">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Feedback modal -->
+<div id="feedback-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>How was it?</h3>
+    <p class="muted" id="feedback-activity-label"></p>
+    <div class="feedback-row">
+      <button class="feedback-btn" data-action="feedback" data-score="1">👍<span>Loved it</span></button>
+      <button class="feedback-btn" data-action="feedback" data-score="0">😐<span>It was okay</span></button>
+      <button class="feedback-btn" data-action="feedback" data-score="-1">👎<span>Not for me</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   UpNext — data.js
+   Mock activity + place database used by the recommendation
+   engine. In production, everything with type: "place" should
+   come from a live call to the Google Places API (Nearby Search
+   + Place Details) instead of this static list — see README.md
+   section "Wiring up a real Places API" for exact swap points.
+   ============================================================ */
+
+// ---- Lookup tables -----------------------------------------------------
+
+const MOOD_COLORS = {
+  adventurous: { accent: "#FF5A36", accent2: "#FF8A3D", label: "Deep Red / Orange" },
+  social:      { accent: "#FFC857", accent2: "#FFDD8A", label: "Warm Yellow" },
+  creative:    { accent: "#A78BFA", accent2: "#C7B6FF", label: "Purple" },
+  relaxed:     { accent: "#6FA8DC", accent2: "#9FC6EA", label: "Soft Blue" },
+  calm:        { accent: "#7DD3C0", accent2: "#A9E6D8", label: "Seafoam" },
+  productive:  { accent: "#4ADE80", accent2: "#86EFAC", label: "Green" },
+  energized:   { accent: "#FF3D71", accent2: "#FF7A9C", label: "Vivid Pink/Red" },
+  accomplished:{ accent: "#F4A261", accent2: "#F7C08A", label: "Amber" },
+};
+
+const DEFAULT_COLORS = { accent: "#6C8CFF", accent2: "#A78BFA" }; // pre-questionnaire glow
+
+const MOODS = ["productive", "relaxed", "creative", "adventurous", "social", "accomplished", "energized", "calm"];
+
+const INTERESTS = [
+  { id: "sports", label: "Sports", emoji: "⚽" },
+  { id: "gaming", label: "Gaming", emoji: "🎮" },
+  { id: "nature", label: "Nature", emoji: "🌳" },
+  { id: "food", label: "Food", emoji: "🍔" },
+  { id: "movies", label: "Movies", emoji: "🎬" },
+  { id: "music", label: "Music", emoji: "🎵" },
+  { id: "shopping", label: "Shopping", emoji: "🛍" },
+  { id: "photography", label: "Photography", emoji: "📸" },
+  { id: "creativity", label: "Creativity", emoji: "🎨" },
+  { id: "learning", label: "Learning", emoji: "🧩" },
+  { id: "social", label: "Social", emoji: "🎉" },
+  { id: "adventure", label: "Adventure", emoji: "🎢" },
+];
+
+const TIME_OPTIONS = [
+  { id: "15m", label: "15 minutes", minutes: 15 },
+  { id: "30m", label: "30 minutes", minutes: 30 },
+  { id: "1h", label: "1 hour", minutes: 60 },
+  { id: "2h", label: "2 hours", minutes: 120 },
+  { id: "half", label: "Half day", minutes: 240 },
+  { id: "full", label: "Full day", minutes: 480 },
+];
+
+const BUDGET_OPTIONS = [
+  { id: "free", label: "Free", max: 0 },
+  { id: "low", label: "Up to $10", max: 10 },
+  { id: "mid", label: "Up to $25", max: 25 },
+  { id: "high", label: "Up to $50", max: 50 },
+  { id: "any", label: "$50+", max: 99999 },
+];
+
+const DISTANCE_OPTIONS = [
+  { id: "walk", label: "Walking distance (~1 km)", km: 1 },
+  { id: "close", label: "Nearby (~5 km)", km: 5 },
+  { id: "mid", label: "Across town (~15 km)", km: 15 },
+  { id: "far", label: "Anywhere (~30+ km)", km: 9999 },
+];
+
+const TRANSPORT_OPTIONS = [
+  { id: "walk", label: "Walking", emoji: "🚶" },
+  { id: "bike", label: "Bicycle", emoji: "🚲" },
+  { id: "car", label: "Car", emoji: "🚗" },
+  { id: "transit", label: "Public Transit", emoji: "🚌" },
+  { id: "rideshare", label: "Ride Share", emoji: "🚕" },
+];
+
+const GROUP_OPTIONS = ["1", "2", "3", "4", "5", "5+"];
+const COMPANION_OPTIONS = ["Alone", "Partner", "Friends", "Family", "Coworkers"];
+const SETTING_OPTIONS = [
+  { id: "indoor", label: "Indoors" },
+  { id: "outdoor", label: "Outdoors" },
+  { id: "either", label: "Either" },
+];
+
+// ---- Helper to build a "near me" Google Maps search link ---------------
+// NOTE: this uses live browser geolocation when opened by the user, which
+// is a reasonable placeholder without an API key. Swap for a real
+// place.googleMapsUri returned by the Places API in production.
+function mapsSearchLink(query) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+function mapsDirectionsLink(query) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`;
+}
+function uberLink(query) {
+  return `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=${encodeURIComponent(query)}`;
+}
+function youtubeSearchLink(query) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+}
+function googleSearchLink(query) {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+/* ============================================================
+   ACTIVITY DATABASE
+   type: "home"  -> can be done anywhere, no location needed
+   type: "place" -> requires a real nearby location (Places API)
+
+   groupRange:  [min, max] group size this fits ( "5+" -> 6..99 )
+   energyRange / intensityRange: 1-10
+   moods: which desired-mood answers this activity satisfies
+   companions: which "who are you with" answers fit ("any" = all)
+   setting: "indoor" | "outdoor" | "either"
+   minMinutes: realistic minimum time needed
+   maxCost: rough per-person cost in $ (0 = free)
+   interests: interest tags this satisfies
+   needsGoodWeather: true if outdoor & weather-sensitive
+   ============================================================ */
+
+const ACTIVITIES = [
+  // ---------------- HOME / AT-HOME ACTIVITIES ----------------
+  {
+    id: "h-cooking", type: "home", category: "cooking", title: "Cook a new recipe from scratch",
+    moods: ["relaxed", "creative", "accomplished", "productive"], energyRange: [1, 6], intensityRange: [1, 4],
+    groupRange: [1, 6], companions: ["any"], setting: "indoor", minMinutes: 45, maxCost: 20,
+    interests: ["food", "creativity"], rating: 4.6,
+    description: "Pick a recipe you've never tried and cook it start to finish.",
+    tutorialQuery: "beginner recipe tutorial dinner", articleQuery: "easy recipes for beginners",
+  },
+  {
+    id: "h-baking", type: "home", category: "baking", title: "Bake something from scratch",
+    moods: ["relaxed", "creative", "accomplished"], energyRange: [1, 5], intensityRange: [1, 3],
+    groupRange: [1, 5], companions: ["any"], setting: "indoor", minMinutes: 60, maxCost: 15,
+    interests: ["food", "creativity"], rating: 4.7,
+    description: "Fill the kitchen with the smell of fresh bread, cookies, or a cake.",
+    tutorialQuery: "easy baking tutorial for beginners", articleQuery: "simple baking recipes",
+  },
+  {
+    id: "h-workout", type: "home", category: "fitness", title: "Do a home workout",
+    moods: ["energized", "accomplished", "productive"], energyRange: [5, 10], intensityRange: [6, 10],
+    groupRange: [1, 4], companions: ["any"], setting: "indoor", minMinutes: 20, maxCost: 0,
+    interests: ["sports"], rating: 4.5,
+    description: "A quick, sweaty bodyweight workout you can do in your living room.",
+    tutorialQuery: "20 minute home workout no equipment", articleQuery: "home workout routine beginners",
+  },
+  {
+    id: "h-yoga", type: "home", category: "yoga", title: "Follow a yoga or stretching flow",
+    moods: ["calm", "relaxed"], energyRange: [1, 5], intensityRange: [1, 4],
+    groupRange: [1, 4], companions: ["any"], setting: "indoor", minMinutes: 15, maxCost: 0,
+    interests: [], rating: 4.6,
+    description: "A gentle guided flow to loosen up and clear your head.",
+    tutorialQuery: "beginner yoga flow 20 minutes", articleQuery: "yoga for stress relief",
+  },
+  {
+    id: "h-meditation", type: "home", category: "meditation", title: "Do a guided meditation session",
+    moods: ["calm", "relaxed"], energyRange: [1, 4], intensityRange: [1, 2],
+    groupRange: [1, 2], companions: ["alone", "partner"], setting: "indoor", minMinutes: 10, maxCost: 0,
+    interests: [], rating: 4.5,
+    description: "Sit somewhere quiet and follow a short guided meditation.",
+    tutorialQuery: "10 minute guided meditation", articleQuery: "beginner meditation guide",
+  },
+  {
+    id: "h-reading", type: "home", category: "reading", title: "Read a book or start a new one",
+    moods: ["calm", "relaxed"], energyRange: [1, 4], intensityRange: [1, 2],
+    groupRange: [1, 2], companions: ["alone", "partner"], setting: "indoor", minMinutes: 20, maxCost: 0,
+    interests: ["learning"], rating: 4.4,
+    description: "Curl up with a book — fiction or non-fiction, whatever suits your mood.",
+    tutorialQuery: "best books to read this year", articleQuery: "book recommendations by genre",
+  },
+  {
+    id: "h-language", type: "home", category: "learning", title: "Practice a new language",
+    moods: ["productive", "accomplished"], energyRange: [2, 6], intensityRange: [1, 3],
+    groupRange: [1, 2], companions: ["alone", "partner"], setting: "indoor", minMinutes: 15, maxCost: 0,
+    interests: ["learning"], rating: 4.5,
+    description: "A short language-learning session to build a daily habit.",
+    tutorialQuery: "language learning app beginner lesson", articleQuery: "fastest way to learn a new language",
+  },
+  {
+    id: "h-coding", type: "home", category: "coding", title: "Learn to code with a mini project",
+    moods: ["productive", "accomplished", "creative"], energyRange: [2, 6], intensityRange: [1, 3],
+    groupRange: [1, 2], companions: ["alone", "partner"], setting: "indoor", minMinutes: 30, maxCost: 0,
+    interests: ["learning"], rating: 4.4,
+    description: "Follow a beginner-friendly coding tutorial and build something small.",
+    tutorialQuery: "beginner coding project tutorial", articleQuery: "learn to code for beginners",
+  },
+  {
+    id: "h-painting", type: "home", category: "painting", title: "Paint or sketch something",
+    moods: ["creative", "calm"], energyRange: [2, 6], intensityRange: [1, 4],
+    groupRange: [1, 4], companions: ["any"], setting: "indoor", minMinutes: 30, maxCost: 10,
+    interests: ["creativity"], rating: 4.6,
+    description: "Grab whatever art supplies you have and paint or sketch freely.",
+    tutorialQuery: "beginner painting tutorial acrylic", articleQuery: "easy drawing ideas for beginners",
+  },
+  {
+    id: "h-photoedit", type: "home", category: "photography", title: "Edit and curate your photos",
+    moods: ["creative", "productive"], energyRange: [1, 5], intensityRange: [1, 3],
+    groupRange: [1, 2], companions: ["alone", "partner"], setting: "indoor", minMinutes: 20, maxCost: 0,
+    interests: ["photography"], rating: 4.3,
+    description: "Go through your camera roll, edit your favorite shots, and build an album.",
+    tutorialQuery: "photo editing tutorial for beginners", articleQuery: "mobile photo editing tips",
+  },
+  {
+    id: "h-crafts", type: "home", category: "crafts", title: "Start a DIY craft project",
+    moods: ["creative", "accomplished"], energyRange: [2, 6], intensityRange: [1, 4],
+    groupRange: [1, 5], companions: ["any"], setting: "indoor", minMinutes: 45, maxCost: 15,
+    interests: ["creativity"], rating: 4.5,
+    description: "A hands-on DIY project you can finish in one sitting.",
+    tutorialQuery: "easy DIY craft project tutorial", articleQuery: "diy craft ideas at home",
+  },
+  {
+    id: "h-crochet", type: "home", category: "crochet", title: "Crochet or knit something small",
+    moods: ["calm", "creative"], energyRange: [1, 4], intensityRange: [1, 2],
+    groupRange: [1, 3], companions: ["any"], setting: "indoor", minMinutes: 30, maxCost: 8,
+    interests: ["creativity"], rating: 4.6,
+    description: "Work on a small crochet or knitting piece while you unwind.",
+    tutorialQuery: "beginner crochet tutorial", articleQuery: "easy crochet patterns for beginners",
+  },
+  {
+    id: "h-boardgames", type: "home", category: "board-games", title: "Play board games or cards",
+    moods: ["social", "relaxed", "productive"], energyRange: [3, 7], intensityRange: [2, 5],
+    groupRange: [2, 8], companions: ["partner", "friends", "family", "coworkers"], setting: "indoor", minMinutes: 30, maxCost: 0,
+    interests: ["social", "gaming"], rating: 4.7,
+    description: "Round up whoever's around for board games or a card game night.",
+    tutorialQuery: "best board games for groups", articleQuery: "fun card games for game night",
+  },
+  {
+    id: "h-videogames", type: "home", category: "gaming", title: "Play video games",
+    moods: ["energized", "relaxed", "social"], energyRange: [3, 8], intensityRange: [2, 6],
+    groupRange: [1, 4], companions: ["any"], setting: "indoor", minMinutes: 20, maxCost: 0,
+    interests: ["gaming"], rating: 4.5,
+    description: "Jump into a game you love, solo or with friends on co-op.",
+    tutorialQuery: "best co-op video games", articleQuery: "top video games to play right now",
+  },
+  {
+    id: "h-instrument", type: "home", category: "music", title: "Practice a musical instrument",
+    moods: ["creative", "accomplished", "calm"], energyRange: [2, 6], intensityRange: [1, 4],
+    groupRange: [1, 3], companions: ["any"], setting: "indoor", minMinutes: 20, maxCost: 0,
+    interests: ["music", "creativity"], rating: 4.5,
+    description: "Pick up your instrument (or a free app) and play for a while.",
+    tutorialQuery: "beginner instrument practice routine", articleQuery: "how to practice an instrument effectively",
+  },
+  {
+    id: "h-journaling", type: "home", category: "journaling", title: "Journal or freewrite",
+    moods: ["calm", "creative", "productive"], energyRange: [1, 4], intensityRange: [1, 2],
+    groupRange: [1, 1], companions: ["alone"], setting: "indoor", minMinutes: 10, maxCost: 0,
+    interests: ["creativity"], rating: 4.3,
+    description: "Write freely about your day, your goals, or whatever's on your mind.",
+    tutorialQuery: "journaling prompts for beginners", articleQuery: "benefits of daily journaling",
+  },
+  {
+    id: "h-movienight", type: "home", category: "movies", title: "Host a movie night at home",
+    moods: ["relaxed", "social"], energyRange: [1, 4], intensityRange: [1, 2],
+    groupRange: [1, 8], companions: ["any"], setting: "indoor", minMinutes: 90, maxCost: 10,
+    interests: ["movies"], rating: 4.6,
+    description: "Pick a film, grab snacks, and settle in with people you like.",
+    tutorialQuery: "best movies to watch tonight", articleQuery: "top rated movies this year",
+  },
+  {
+    id: "h-podcast", type: "home", category: "podcast", title: "Listen to a podcast while you unwind",
+    moods: ["calm", "relaxed"], energyRange: [1, 4], intensityRange: [1, 2],
+    groupRange: [1, 2], companions: ["alone", "partner"], setting: "indoor", minMinutes: 20, maxCost: 0,
+    interests: ["learning"], rating: 4.2,
+    description: "Queue up an episode on a topic you're curious about.",
+    tutorialQuery: "best podcasts to listen to", articleQuery: "top podcast recommendations",
+  },
+  {
+    id: "h-homespa", type: "home", category: "self-care", title: "Give yourself an at-home spa evening",
+    moods: ["calm", "relaxed"], energyRange: [1, 3], intensityRange: [1, 2],
+    groupRange: [1, 2], companions: ["alone", "partner"], setting: "indoor", minMinutes: 30, maxCost: 15,
+    interests: [], rating: 4.4,
+    description: "Face mask, warm bath, low lighting — a proper reset.",
+    tutorialQuery: "at home spa night routine", articleQuery: "self care evening ideas",
+  },
+  {
+    id: "h-puzzle", type: "home", category: "puzzle", title: "Work on a jigsaw or logic puzzle",
+    moods: ["calm", "productive"], energyRange: [1, 4], intensityRange: [1, 3],
+    groupRange: [1, 4], companions: ["any"], setting: "indoor", minMinutes: 20, maxCost: 5,
+    interests: ["gaming", "learning"], rating: 4.3,
+    description: "Chip away at a puzzle — satisfying and screen-free.",
+    tutorialQuery: "jigsaw puzzle tips", articleQuery: "best puzzles for adults",
+  },
+
+  // ---------------- PLACE-BASED ACTIVITIES (need location) ----------------
+  {
+    id: "p-escaperoom", type: "place", category: "escape-room", title: "Escape room",
+    searchQuery: "escape room", moods: ["adventurous", "social", "energized"], energyRange: [5, 10],
+    intensityRange: [5, 9], groupRange: [2, 8], companions: ["partner", "friends", "family", "coworkers"],
+    setting: "indoor", minMinutes: 60, maxCost: 35, interests: ["adventure", "social", "gaming"],
+    needsGoodWeather: false, rating: 4.7, baseDistanceKm: 3.2,
+    description: "A themed room of puzzles your group has to solve against the clock.",
+  },
+  {
+    id: "p-bowling", type: "place", category: "bowling", title: "Bowling",
+    searchQuery: "bowling alley", moods: ["social", "energized", "adventurous"], energyRange: [4, 10],
+    intensityRange: [4, 8], groupRange: [2, 99], companions: ["partner", "friends", "family", "coworkers"],
+    setting: "indoor", minMinutes: 45, maxCost: 25, interests: ["sports", "social"],
+    needsGoodWeather: false, rating: 4.4, baseDistanceKm: 4.1,
+    description: "Casual, competitive, and works for almost any group size.",
+  },
+  {
+    id: "p-gokart", type: "place", category: "go-kart", title: "Go-karting",
+    searchQuery: "go kart racing track", moods: ["adventurous", "energized"], energyRange: [7, 10],
+    intensityRange: [7, 10], groupRange: [2, 99], companions: ["partner", "friends", "family", "coworkers"],
+    setting: "either", minMinutes: 45, maxCost: 40, interests: ["adventure", "sports"],
+    needsGoodWeather: false, rating: 4.6, baseDistanceKm: 8.5,
+    description: "High-speed karts on a real track — a rush for bigger groups.",
+  },
+  {
+    id: "p-paintball", type: "place", category: "paintball", title: "Paintball or laser tag",
+    searchQuery: "paintball or laser tag arena", moods: ["adventurous", "energized", "social"], energyRange: [7, 10],
+    intensityRange: [7, 10], groupRange: [3, 99], companions: ["friends", "coworkers", "family"],
+    setting: "either", minMinutes: 90, maxCost: 35, interests: ["adventure", "sports", "social"],
+    needsGoodWeather: false, rating: 4.5, baseDistanceKm: 9.8,
+    description: "Team-based action that thrives with a big, energetic group.",
+  },
+  {
+    id: "p-trampoline", type: "place", category: "trampoline", title: "Trampoline park",
+    searchQuery: "trampoline park", moods: ["energized", "social", "adventurous"], energyRange: [6, 10],
+    intensityRange: [6, 10], groupRange: [1, 99], companions: ["any"], setting: "indoor",
+    minMinutes: 45, maxCost: 20, interests: ["sports", "adventure"], needsGoodWeather: false,
+    rating: 4.5, baseDistanceKm: 5.6,
+    description: "Wall-to-wall trampolines, dodgeball courts, and foam pits.",
+  },
+  {
+    id: "p-minigolf", type: "place", category: "mini-golf", title: "Mini golf",
+    searchQuery: "mini golf course", moods: ["social", "relaxed", "adventurous"], energyRange: [3, 8],
+    intensityRange: [3, 6], groupRange: [1, 99], companions: ["any"], setting: "either",
+    minMinutes: 45, maxCost: 18, interests: ["sports", "social"], needsGoodWeather: true,
+    rating: 4.3, baseDistanceKm: 4.9,
+    description: "Low-pressure and fun for mixed-age or mixed-energy groups.",
+  },
+  {
+    id: "p-arcade", type: "place", category: "arcade", title: "Arcade",
+    searchQuery: "arcade", moods: ["energized", "social", "creative"], energyRange: [3, 9],
+    intensityRange: [3, 7], groupRange: [1, 99], companions: ["any"], setting: "indoor",
+    minMinutes: 30, maxCost: 25, interests: ["gaming", "social"], needsGoodWeather: false,
+    rating: 4.3, baseDistanceKm: 3.7,
+    description: "Classic and modern arcade games, good any time of day.",
+  },
+  {
+    id: "p-sportsfacility", type: "place", category: "sports", title: "Climbing gym or sports facility",
+    searchQuery: "climbing gym", moods: ["energized", "accomplished", "adventurous"], energyRange: [6, 10],
+    intensityRange: [6, 10], groupRange: [1, 6], companions: ["any"], setting: "indoor",
+    minMinutes: 60, maxCost: 25, interests: ["sports", "adventure"], needsGoodWeather: false,
+    rating: 4.6, baseDistanceKm: 6.3,
+    description: "Bouldering, courts, or fitness classes to burn off high energy.",
+  },
+  {
+    id: "p-hike", type: "place", category: "hiking", title: "Hiking trail",
+    searchQuery: "hiking trail", moods: ["adventurous", "calm", "energized"], energyRange: [4, 10],
+    intensityRange: [4, 9], groupRange: [1, 99], companions: ["any"], setting: "outdoor",
+    minMinutes: 60, maxCost: 0, interests: ["nature", "adventure"], needsGoodWeather: true,
+    rating: 4.7, baseDistanceKm: 7.1,
+    description: "A trail to stretch your legs and clear your head outdoors.",
+  },
+  {
+    id: "p-park", type: "place", category: "park", title: "Park",
+    searchQuery: "park", moods: ["relaxed", "calm", "social"], energyRange: [1, 6],
+    intensityRange: [1, 4], groupRange: [1, 99], companions: ["any"], setting: "outdoor",
+    minMinutes: 30, maxCost: 0, interests: ["nature"], needsGoodWeather: true,
+    rating: 4.5, baseDistanceKm: 2.4,
+    description: "Green space nearby for a walk, picnic, or just sitting outside.",
+  },
+  {
+    id: "p-bikerental", type: "place", category: "cycling", title: "Bike rental / cycling route",
+    searchQuery: "bike rental", moods: ["adventurous", "energized"], energyRange: [5, 9],
+    intensityRange: [5, 8], groupRange: [1, 6], companions: ["any"], setting: "outdoor",
+    minMinutes: 45, maxCost: 20, interests: ["nature", "adventure"], needsGoodWeather: true,
+    rating: 4.4, baseDistanceKm: 3.9,
+    description: "Rent a bike and explore a nearby route at your own pace.",
+  },
+  {
+    id: "p-museum", type: "place", category: "museum", title: "Museum",
+    searchQuery: "museum", moods: ["calm", "productive", "creative"], energyRange: [1, 5],
+    intensityRange: [1, 3], groupRange: [1, 99], companions: ["any"], setting: "indoor",
+    minMinutes: 60, maxCost: 20, interests: ["learning", "photography"], needsGoodWeather: false,
+    rating: 4.6, baseDistanceKm: 5.2,
+    description: "A quiet, engaging way to spend a couple of hours learning something new.",
+  },
+  {
+    id: "p-artgallery", type: "place", category: "gallery", title: "Art gallery",
+    searchQuery: "art gallery", moods: ["calm", "creative"], energyRange: [1, 4],
+    intensityRange: [1, 2], groupRange: [1, 6], companions: ["any"], setting: "indoor",
+    minMinutes: 30, maxCost: 0, interests: ["creativity", "photography"], needsGoodWeather: false,
+    rating: 4.5, baseDistanceKm: 4.4,
+    description: "Wander a local gallery for a dose of visual inspiration.",
+  },
+  {
+    id: "p-cafe", type: "place", category: "cafe", title: "Coffee shop",
+    searchQuery: "coffee shop", moods: ["calm", "relaxed", "productive"], energyRange: [1, 5],
+    intensityRange: [1, 3], groupRange: [1, 6], companions: ["any"], setting: "indoor",
+    minMinutes: 20, maxCost: 8, interests: ["food"], needsGoodWeather: false,
+    rating: 4.5, baseDistanceKm: 1.1,
+    description: "Good coffee and a change of scenery, close by.",
+  },
+  {
+    id: "p-restaurant", type: "place", category: "restaurant", title: "Restaurant",
+    searchQuery: "restaurant good for groups", moods: ["social", "relaxed", "accomplished"], energyRange: [1, 6],
+    intensityRange: [1, 3], groupRange: [1, 99], companions: ["any"], setting: "indoor",
+    minMinutes: 45, maxCost: 40, interests: ["food", "social"], needsGoodWeather: false,
+    rating: 4.5, baseDistanceKm: 2.6,
+    description: "Sit-down food nearby, sized for solo diners or a big table.",
+  },
+  {
+    id: "p-foodmarket", type: "place", category: "food-market", title: "Food market or street-food spot",
+    searchQuery: "food market", moods: ["social", "adventurous"], energyRange: [2, 6],
+    intensityRange: [2, 4], groupRange: [1, 99], companions: ["any"], setting: "either",
+    minMinutes: 30, maxCost: 20, interests: ["food", "social"], needsGoodWeather: true,
+    rating: 4.4, baseDistanceKm: 3.3,
+    description: "Graze between stalls and try a few different things.",
+  },
+  {
+    id: "p-cinema", type: "place", category: "cinema", title: "Cinema",
+    searchQuery: "movie theater", moods: ["relaxed", "social"], energyRange: [1, 5],
+    intensityRange: [1, 2], groupRange: [1, 99], companions: ["any"], setting: "indoor",
+    minMinutes: 90, maxCost: 18, interests: ["movies"], needsGoodWeather: false,
+    rating: 4.4, baseDistanceKm: 4.0,
+    description: "Catch whatever's showing on the big screen right now.",
+  },
+  {
+    id: "p-livemusic", type: "place", category: "live-music", title: "Live music or karaoke venue",
+    searchQuery: "live music venue", moods: ["social", "energized", "creative"], energyRange: [4, 9],
+    intensityRange: [4, 8], groupRange: [1, 99], companions: ["any"], setting: "indoor",
+    minMinutes: 60, maxCost: 25, interests: ["music", "social"], needsGoodWeather: false,
+    rating: 4.5, baseDistanceKm: 5.9,
+    description: "Catch a set or grab a mic — good energy, good noise.",
+  },
+  {
+    id: "p-shopping", type: "place", category: "shopping", title: "Shopping center",
+    searchQuery: "shopping center", moods: ["social", "relaxed"], energyRange: [2, 6],
+    intensityRange: [2, 4], groupRange: [1, 99], companions: ["any"], setting: "indoor",
+    minMinutes: 45, maxCost: 30, interests: ["shopping"], needsGoodWeather: false,
+    rating: 4.2, baseDistanceKm: 4.6,
+    description: "Browse shops nearby — great low-commitment group activity.",
+  },
+  {
+    id: "p-event", type: "place", category: "event", title: "Local event happening today",
+    searchQuery: "events happening today near me", moods: ["social", "adventurous", "energized"], energyRange: [3, 9],
+    intensityRange: [3, 7], groupRange: [1, 99], companions: ["any"], setting: "either",
+    minMinutes: 60, maxCost: 30, interests: ["social", "adventure"], needsGoodWeather: false,
+    rating: 4.3, baseDistanceKm: 6.0,
+    description: "Whatever's on locally right now — markets, pop-ups, shows.",
+  },
+];
+
+// small deterministic pseudo-random so distances/hours look "live" but stay
+// consistent per session without needing a real backend
+function seededVariance(seed, range) {
+  const x = Math.sin(seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) * 10000;
+  const frac = x - Math.floor(x);
+  return (frac * 2 - 1) * range;
+}
+
+</script>
+<script>
+/* ============================================================
+   UpNext — app.js
+   All app state, screen routing, the questionnaire flow, the
+   recommendation engine, quick search, and the saved/scheduled
+   calendar. No external framework — plain DOM + event delegation.
+   ============================================================ */
+
+// ---------------------------------------------------------------
+// STATE
+// ---------------------------------------------------------------
+const state = {
+  permissions: { location: null, weather: null }, // null = undecided, true/false
+  weatherCondition: null, // "good" | "bad"
+  answers: {
+    mood: null,
+    energy: 5,
+    groupSize: null,
+    companions: null,
+    setting: null,
+    time: null,
+    budget: null,
+    transport: [],
+    distance: null,
+    intensity: 5,
+    interests: [],
+  },
+  feedbackByCategory: {}, // category -> cumulative adjustment
+  saved: [],      // { uid, item, savedAt }
+  scheduled: [],  // { uid, item, date, time, completed }
+  recent: [],     // { uid, item, completedAt, feedback }
+  pendingModalTarget: null, // uid used by schedule/feedback modals
+};
+
+let uidCounter = 1;
+function nextUid() { return "u" + uidCounter++; }
+
+// ---------------------------------------------------------------
+// SCREEN ROUTING
+// ---------------------------------------------------------------
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function setGlow(accent, accent2) {
+  document.documentElement.style.setProperty("--accent", accent);
+  document.documentElement.style.setProperty("--accent2", accent2);
+}
+
+// ---------------------------------------------------------------
+// HOME SCREEN — calendar + recent renders
+// ---------------------------------------------------------------
+function renderHome() {
+  renderCalendarList();
+  renderRecentList();
+}
+
+function renderCalendarList() {
+  const el = document.getElementById("calendar-list");
+  const items = [...state.scheduled].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const savedOnly = state.saved;
+
+  if (items.length === 0 && savedOnly.length === 0) {
+    el.innerHTML = `<div class="empty-hint">Nothing saved or scheduled yet. When you find something you like, save it or schedule it from its recommendation card.</div>`;
+    return;
+  }
+
+  let html = "";
+  items.forEach((s) => {
+    html += `
+      <div class="list-item">
+        <div class="li-main">
+          <span class="li-tag ${s.completed ? "done" : ""}">${s.completed ? "Completed" : "Scheduled"}</span>
+          <div class="li-title">${escapeHtml(s.item.title)}</div>
+          <div class="li-meta">${formatDate(s.date)} at ${formatTime(s.time)}</div>
+        </div>
+        <div class="li-actions">
+          ${!s.completed ? `<button class="btn btn-small btn-secondary" data-action="edit-schedule" data-uid="${s.uid}">Edit</button>` : ""}
+          ${!s.completed ? `<button class="btn btn-small btn-primary" data-action="complete-scheduled" data-uid="${s.uid}">Mark done</button>` : ""}
+          <button class="btn btn-small btn-ghost" data-action="remove-scheduled" data-uid="${s.uid}">Remove</button>
+        </div>
+      </div>`;
+  });
+  savedOnly.forEach((s) => {
+    html += `
+      <div class="list-item">
+        <div class="li-main">
+          <span class="li-tag">Saved</span>
+          <div class="li-title">${escapeHtml(s.item.title)}</div>
+          <div class="li-meta">Saved for later</div>
+        </div>
+        <div class="li-actions">
+          <button class="btn btn-small btn-secondary" data-action="schedule-saved" data-uid="${s.uid}">Schedule</button>
+          <button class="btn btn-small btn-ghost" data-action="remove-saved" data-uid="${s.uid}">Remove</button>
+        </div>
+      </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderRecentList() {
+  const el = document.getElementById("recent-list");
+  if (state.recent.length === 0) {
+    el.innerHTML = `<div class="empty-hint">Activities you complete and rate will show up here so you can repeat the ones you loved.</div>`;
+    return;
+  }
+  el.innerHTML = state.recent
+    .slice()
+    .reverse()
+    .map((r) => {
+      const face = r.feedback === 1 ? "👍" : r.feedback === -1 ? "👎" : "😐";
+      return `
+      <div class="list-item">
+        <div class="li-main">
+          <div class="li-title">${face} ${escapeHtml(r.item.title)}</div>
+          <div class="li-meta">Completed ${formatRelative(r.completedAt)}</div>
+        </div>
+        <div class="li-actions">
+          <button class="btn btn-small btn-secondary" data-action="repeat-activity" data-uid="${r.uid}">Do again</button>
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+// ---------------------------------------------------------------
+// PERMISSIONS SCREEN
+// ---------------------------------------------------------------
+function beginQuestionnaire() {
+  resetAnswers();
+  showScreen("screen-permissions");
+}
+
+function decidePermission(perm, granted) {
+  state.permissions[perm] = granted;
+  const statusEl = document.getElementById(`status-${perm}`);
+  if (perm === "weather" && granted) {
+    state.weatherCondition = Math.random() < 0.7 ? "good" : "bad";
+    statusEl.textContent = state.weatherCondition === "good"
+      ? "Allowed — looks clear right now"
+      : "Allowed — looks rainy right now";
+  } else {
+    statusEl.textContent = granted ? "Allowed" : "Not shared — using questionnaire answers only";
+  }
+  statusEl.className = "permission-status " + (granted ? "granted" : "denied");
+
+  const bothDecided = state.permissions.location !== null && state.permissions.weather !== null;
+  document.getElementById("permissions-continue").disabled = !bothDecided;
+}
+
+// ---------------------------------------------------------------
+// QUESTIONNAIRE
+// ---------------------------------------------------------------
+const QUESTION_STEPS = ["mood-energy", "group-setting", "time-budget", "transport-distance", "intensity-interests"];
+let currentStep = 0;
+
+function resetAnswers() {
+  currentStep = 0;
+  state.answers = {
+    mood: null, energy: 5, groupSize: null, companions: null, setting: null,
+    time: null, budget: null, transport: [], distance: null, intensity: 5, interests: [],
+  };
+}
+
+function renderQuestionnaire() {
+  showScreen("screen-questionnaire");
+  document.getElementById("progress-fill").style.width = `${(currentStep / QUESTION_STEPS.length) * 100}%`;
+  const container = document.getElementById("question-steps");
+  container.innerHTML = stepTemplate(QUESTION_STEPS[currentStep]);
+}
+
+function stepTemplate(step) {
+  const a = state.answers;
+  if (step === "mood-energy") {
+    return `
+      <div class="q-step">
+        <div class="q-block">
+          <h2>How do you want to feel?</h2>
+          <div class="chip-row" data-group="mood">
+            ${MOODS.map((m) => chip(m, capitalize(m), a.mood === m)).join("")}
+          </div>
+        </div>
+        <div class="q-block">
+          <h2>What's your energy level right now?</h2>
+          <p class="q-help">1 = running on empty · 10 = wide awake and raring to go</p>
+          <div class="stepper" data-stepper="energy">
+            <button data-action="step" data-target="energy" data-delta="-1">−</button>
+            <span class="stepper-value">${a.energy}</span>
+            <button data-action="step" data-target="energy" data-delta="1">+</button>
+          </div>
+        </div>
+        ${navRow(false)}
+      </div>`;
+  }
+  if (step === "group-setting") {
+    return `
+      <div class="q-step">
+        <div class="q-block">
+          <h2>How many people, including you?</h2>
+          <div class="chip-row" data-group="groupSize">
+            ${GROUP_OPTIONS.map((g) => chip(g, g, a.groupSize === g)).join("")}
+          </div>
+        </div>
+        <div class="q-block">
+          <h2>Who are you with?</h2>
+          <div class="chip-row" data-group="companions">
+            ${COMPANION_OPTIONS.map((c) => chip(c, c, a.companions === c)).join("")}
+          </div>
+        </div>
+        <div class="q-block">
+          <h2>Indoors or outdoors?</h2>
+          <div class="chip-row" data-group="setting">
+            ${SETTING_OPTIONS.map((s) => chip(s.id, s.label, a.setting === s.id)).join("")}
+          </div>
+        </div>
+        ${navRow(true)}
+      </div>`;
+  }
+  if (step === "time-budget") {
+    return `
+      <div class="q-step">
+        <div class="q-block">
+          <h2>How much time do you have?</h2>
+          <div class="chip-row" data-group="time">
+            ${TIME_OPTIONS.map((t) => chip(t.id, t.label, a.time === t.id)).join("")}
+          </div>
+        </div>
+        <div class="q-block">
+          <h2>What's your budget?</h2>
+          <div class="chip-row" data-group="budget">
+            ${BUDGET_OPTIONS.map((b) => chip(b.id, b.label, a.budget === b.id)).join("")}
+          </div>
+        </div>
+        ${navRow(true)}
+      </div>`;
+  }
+  if (step === "transport-distance") {
+    return `
+      <div class="q-step">
+        <div class="q-block">
+          <h2>How can you get around?</h2>
+          <p class="q-help">Select all that apply</p>
+          <div class="chip-row" data-group="transport" data-multi="true">
+            ${TRANSPORT_OPTIONS.map((t) => chip(t.id, `${t.emoji} ${t.label}`, a.transport.includes(t.id))).join("")}
+          </div>
+        </div>
+        <div class="q-block">
+          <h2>How far are you willing to travel?</h2>
+          <div class="chip-row" data-group="distance">
+            ${DISTANCE_OPTIONS.map((d) => chip(d.id, d.label, a.distance === d.id)).join("")}
+          </div>
+        </div>
+        ${navRow(true)}
+      </div>`;
+  }
+  if (step === "intensity-interests") {
+    return `
+      <div class="q-step">
+        <div class="q-block">
+          <h2>How active should it be?</h2>
+          <p class="q-help">1 = relaxing · 10 = full-on active</p>
+          <div class="stepper" data-stepper="intensity">
+            <button data-action="step" data-target="intensity" data-delta="-1">−</button>
+            <span class="stepper-value">${a.intensity}</span>
+            <button data-action="step" data-target="intensity" data-delta="1">+</button>
+          </div>
+        </div>
+        <div class="q-block">
+          <h2>Anything you're especially interested in?</h2>
+          <p class="q-help">Optional — select any number</p>
+          <div class="interest-grid" data-group="interests" data-multi="true">
+            ${INTERESTS.map((i) => `
+              <button class="interest-chip ${a.interests.includes(i.id) ? "selected" : ""}" data-action="toggle-chip" data-group="interests" data-value="${i.id}" data-multi="true">
+                <span class="emoji">${i.emoji}</span>${i.label}
+              </button>`).join("")}
+          </div>
+        </div>
+        ${navRow(true, true)}
+      </div>`;
+  }
+}
+
+function chip(value, label, selected) {
+  return `<button class="chip ${selected ? "selected" : ""}" data-action="toggle-chip" data-value="${value}">${label}</button>`;
+}
+function navRow(showBack, isLast) {
+  return `
+    <div class="q-nav">
+      ${showBack ? `<button class="btn btn-ghost" data-action="prev-step">← Back</button>` : `<button class="btn btn-ghost" data-action="go-home">Cancel</button>`}
+      <button class="btn btn-primary" data-action="${isLast ? "finish-questionnaire" : "next-step"}">${isLast ? "See my recommendations →" : "Continue →"}</button>
+    </div>`;
+}
+
+function handleChipToggle(btn) {
+  const group = btn.closest("[data-group]");
+  const groupName = group.dataset.group;
+  const multi = group.dataset.multi === "true";
+  const value = btn.dataset.value;
+
+  if (multi) {
+    const arr = state.answers[groupName];
+    const idx = arr.indexOf(value);
+    if (idx >= 0) arr.splice(idx, 1); else arr.push(value);
+  } else {
+    state.answers[groupName] = value;
+  }
+  renderQuestionnaire();
+}
+
+function handleStep(target, delta) {
+  const val = clamp(state.answers[target] + Number(delta), 1, 10);
+  state.answers[target] = val;
+  renderQuestionnaire();
+}
+
+function stepIsAnswered(step) {
+  const a = state.answers;
+  if (step === "mood-energy") return !!a.mood;
+  if (step === "group-setting") return !!a.groupSize && !!a.companions && !!a.setting;
+  if (step === "time-budget") return !!a.time && !!a.budget;
+  if (step === "transport-distance") return a.transport.length > 0 && !!a.distance;
+  if (step === "intensity-interests") return true;
+  return true;
+}
+
+function nextStep() {
+  if (!stepIsAnswered(QUESTION_STEPS[currentStep])) {
+    flashIncomplete();
+    return;
+  }
+  currentStep = Math.min(currentStep + 1, QUESTION_STEPS.length - 1);
+  renderQuestionnaire();
+}
+function prevStep() {
+  currentStep = Math.max(currentStep - 1, 0);
+  renderQuestionnaire();
+}
+
+function flashIncomplete() {
+  const container = document.getElementById("question-steps");
+  container.style.animation = "none";
+  requestAnimationFrame(() => { container.style.animation = "shake 0.3s"; });
+}
+
+// small shake keyframe injected once
+(function injectShake() {
+  const style = document.createElement("style");
+  style.textContent = `@keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }`;
+  document.head.appendChild(style);
+})();
+
+function finishQuestionnaire() {
+  if (!stepIsAnswered(QUESTION_STEPS[currentStep])) { flashIncomplete(); return; }
+  showScreen("screen-loading");
+  const messages = [
+    "Reading the room…",
+    "Weighing your mood against the clock…",
+    "Checking what's actually open nearby…",
+    "Ranking your best options…",
+  ];
+  let i = 0;
+  document.getElementById("loading-text").textContent = messages[0];
+  const interval = setInterval(() => {
+    i = (i + 1) % messages.length;
+    document.getElementById("loading-text").textContent = messages[i];
+  }, 450);
+
+  setTimeout(() => {
+    clearInterval(interval);
+    const recs = generateRecommendations(state.answers);
+    renderResults(recs);
+  }, 1400);
+}
+
+// ---------------------------------------------------------------
+// RECOMMENDATION ENGINE
+// ---------------------------------------------------------------
+function groupNumber(groupSize) {
+  if (groupSize === "5+") return 8;
+  return Number(groupSize);
+}
+
+function rangeScore(value, range, weight) {
+  const [min, max] = range;
+  if (value >= min && value <= max) return weight;
+  const dist = value < min ? min - value : value - max;
+  return Math.max(-weight, weight - dist * (weight / 4));
+}
+
+function distanceFor(activity) {
+  const variance = seededVariance(activity.id, 1.4);
+  return Math.max(0.3, +(activity.baseDistanceKm + variance).toFixed(1));
+}
+
+// Returns { score, reasons[] } or null if hard-excluded
+function evaluateActivity(a, answers, opts) {
+  const { locationGranted, weatherGranted, weatherCondition, relaxed, currentHour } = opts;
+  const reasons = [];
+  const isLateNight = typeof currentHour === "number" && (currentHour >= 22 || currentHour < 6);
+
+  if (a.type === "place" && !locationGranted) return null; // never show places without location
+
+  let score = 0;
+
+  // mood
+  if (a.moods.includes(answers.mood)) { score += 30; reasons.push(`matches wanting to feel ${answers.mood}`); }
+  else score -= 6;
+
+  // energy & intensity
+  score += rangeScore(answers.energy, a.energyRange, 16);
+  score += rangeScore(answers.intensity, a.intensityRange, 14);
+  if (answers.intensity >= 7 && a.intensityRange[1] >= 7) reasons.push("matches your high activity level");
+  if (answers.intensity <= 3 && a.intensityRange[1] <= 5) reasons.push("fits the relaxed pace you want");
+
+  // group size
+  const g = groupNumber(answers.groupSize);
+  const [gMin, gMax] = a.groupRange;
+  if (g >= gMin && g <= gMax) { score += 16; if (g >= 6) reasons.push("works well for a bigger group"); }
+  else if (g > gMax && gMax <= 2 && !relaxed) return null; // solo/duo-only activity can't fit a crowd
+  else score -= 12;
+
+  // companions
+  if (a.companions.includes("any") || a.companions.includes(answers.companions)) score += 8;
+  else score -= 6;
+
+  // setting (hard exclude unless relaxed pass)
+  if (answers.setting !== "either" && a.setting !== "either" && a.setting !== answers.setting) {
+    if (!relaxed) return null;
+    score -= 25;
+  } else {
+    score += 10;
+  }
+
+  // time
+  const availMinutes = TIME_OPTIONS.find((t) => t.id === answers.time).minutes;
+  if (a.minMinutes > availMinutes) {
+    if (!relaxed) return null;
+    score -= 20;
+  } else {
+    score += 8 + Math.max(0, 6 - (availMinutes - a.minMinutes) / 90);
+  }
+
+  // budget
+  const budgetMax = BUDGET_OPTIONS.find((b) => b.id === answers.budget).max;
+  if (a.maxCost > budgetMax) {
+    if (!relaxed) return null;
+    score -= 18;
+  } else {
+    score += 6;
+    if (a.maxCost === 0 && budgetMax === 0) reasons.push("completely free");
+  }
+
+  // place-only: distance + transport + weather
+  let liveDistanceKm = null;
+  if (a.type === "place") {
+    liveDistanceKm = distanceFor(a);
+    const maxDistKm = DISTANCE_OPTIONS.find((d) => d.id === answers.distance).km;
+    if (liveDistanceKm > maxDistKm) {
+      if (!relaxed) return null;
+      score -= 15;
+    } else {
+      score += 10 * (1 - liveDistanceKm / (maxDistKm + 1));
+      reasons.push(`only ${liveDistanceKm} km away`);
+    }
+    const onlyWalking = answers.transport.length === 1 && answers.transport[0] === "walk";
+    if (onlyWalking && liveDistanceKm > 2) score -= 14;
+
+    if (weatherGranted && a.needsGoodWeather && weatherCondition === "bad") {
+      if (a.setting === "outdoor") { if (!relaxed) return null; score -= 30; }
+      else score -= 15;
+    } else if (weatherGranted && a.needsGoodWeather && weatherCondition === "good") {
+      reasons.push("good weather for it right now");
+    }
+
+    if (isLateNight && a.setting === "outdoor") {
+      if (!relaxed) return null;
+      score -= 25;
+    } else if (isLateNight && a.category !== "cinema" && a.category !== "live-music" && a.category !== "arcade" && a.category !== "bowling") {
+      score -= 6; // most daytime places are winding down late at night
+    }
+  }
+
+  // interests
+  const overlap = a.interests.filter((i) => answers.interests.includes(i));
+  if (overlap.length) { score += overlap.length * 9; reasons.push(`fits your interest in ${overlap.map(interestLabel).join(" & ")}`); }
+
+  // learned feedback
+  const fb = state.feedbackByCategory[a.category] || 0;
+  score += fb * 6;
+  if (fb > 0) reasons.push("similar to activities you've loved before");
+  if (fb < 0) score -= 4;
+
+  return { score, reasons: reasons.slice(0, 3), liveDistanceKm };
+}
+
+function interestLabel(id) {
+  const found = INTERESTS.find((i) => i.id === id);
+  return found ? found.label.toLowerCase() : id;
+}
+
+function generateRecommendations(answers) {
+  const opts = {
+    locationGranted: state.permissions.location === true,
+    weatherGranted: state.permissions.weather === true,
+    weatherCondition: state.weatherCondition,
+    currentHour: new Date().getHours(),
+    relaxed: false,
+  };
+
+  let pool = scorePool(answers, opts);
+  let picks = pickDiverse(pool, 10);
+
+  if (picks.length < 5) {
+    // relax hard constraints so the app never shows "no results"
+    const relaxedPool = scorePool(answers, { ...opts, relaxed: true });
+    const existingIds = new Set(picks.map((p) => p.activity.id));
+    const extra = pickDiverse(relaxedPool.filter((p) => !existingIds.has(p.activity.id)), 10 - picks.length);
+    picks = picks.concat(extra);
+  }
+  return picks.slice(0, 10);
+}
+
+function scorePool(answers, opts) {
+  return ACTIVITIES
+    .map((a) => {
+      const result = evaluateActivity(a, answers, opts);
+      if (!result) return null;
+      return { activity: a, score: result.score, reasons: result.reasons, liveDistanceKm: result.liveDistanceKm };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score);
+}
+
+// keep variety: at most 2 per category, prefer highest scoring across categories first
+function pickDiverse(sortedPool, limit) {
+  const picked = [];
+  const perCategory = {};
+  for (const entry of sortedPool) {
+    const cat = entry.activity.category;
+    perCategory[cat] = perCategory[cat] || 0;
+    if (perCategory[cat] >= 2) continue;
+    if (picked.some((p) => p.activity.id === entry.activity.id)) continue;
+    picked.push(entry);
+    perCategory[cat]++;
+    if (picked.length >= limit) break;
+  }
+  return picked;
+}
+
+// ---------------------------------------------------------------
+// RESULTS RENDERING
+// ---------------------------------------------------------------
+function dominantMoodColor(mood) {
+  return MOOD_COLORS[mood] || DEFAULT_COLORS;
+}
+
+function renderResults(picks) {
+  const mood = state.answers.mood;
+  const colors = dominantMoodColor(mood);
+  setGlow(colors.accent, colors.accent2);
+
+  const now = new Date();
+  const timeLabel = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  document.getElementById("results-subtitle").textContent =
+    `Ranked for ${capitalize(mood)} at ${timeLabel} · ${colors.label} mood palette${state.permissions.location ? "" : " · location off, so it's all things you can do right where you are"}`;
+
+  const list = document.getElementById("results-list");
+  if (picks.length === 0) {
+    list.innerHTML = `<div class="empty-hint">Even with everything considered, nothing cleared the bar — try widening your budget, time, or distance next time.</div>`;
+  } else {
+    list.innerHTML = picks.map((p, idx) => recCardHtml(p, idx + 1)).join("");
+  }
+  showScreen("screen-results");
+}
+
+function recCardHtml(entry, rank) {
+  const a = entry.activity;
+  const uid = nextUid();
+  cardCache[uid] = a;
+  const isPlace = a.type === "place";
+  const why = entry.reasons.length ? entry.reasons.join("; ") : "a solid all-round fit for your answers";
+
+  let linksHtml = "";
+  let metaHtml = "";
+  let photoHtml = "";
+
+  if (isPlace) {
+    const dist = entry.liveDistanceKm != null ? entry.liveDistanceKm : distanceFor(a);
+    const hours = mockHours(a.id);
+    photoHtml = `<div class="rec-photo-placeholder">📍</div>`;
+    metaHtml = `
+      <div class="rec-meta-row">
+        <span>⭐ ${a.rating.toFixed(1)}</span>
+        <span>📏 ${dist} km away</span>
+        <span>🕒 ${hours}</span>
+      </div>`;
+    linksHtml = `
+      <div class="rec-links">
+        <a href="${mapsSearchLink(a.searchQuery + " near me")}" target="_blank" rel="noopener">View on Google Maps</a>
+        <a href="${googleSearchLink(a.searchQuery + " reviews near me")}" target="_blank" rel="noopener">Reviews</a>
+      </div>`;
+  } else {
+    photoHtml = `<div class="rec-photo-placeholder">🏠</div>`;
+    metaHtml = `<div class="rec-meta-row"><span>⭐ ${a.rating.toFixed(1)}</span><span>🏠 At home</span></div>`;
+    linksHtml = `
+      <div class="rec-links">
+        <a href="${youtubeSearchLink(a.tutorialQuery)}" target="_blank" rel="noopener">Tutorial video</a>
+        <a href="${googleSearchLink(a.articleQuery)}" target="_blank" rel="noopener">Guides &amp; articles</a>
+      </div>`;
+  }
+
+  const getMeThere = isPlace
+    ? `<a class="btn btn-small btn-secondary" href="${uberLink(a.searchQuery + " near me")}" target="_blank" rel="noopener">Get Me There 🚕</a>`
+    : "";
+
+  return `
+    <div class="rec-card">
+      <span class="rec-rank">#${rank}</span>
+      <span class="rec-type-tag">${isPlace ? "Nearby place" : "At home"}</span>
+      ${photoHtml}
+      <h3>${escapeHtml(a.title)}</h3>
+      <p class="rec-desc">${escapeHtml(a.description)}</p>
+      <div class="rec-why"><b>Why this fits:</b> ${escapeHtml(why)}</div>
+      ${metaHtml}
+      <span class="rec-score-pill">Match score ${Math.max(0, Math.round(entry.score))}</span>
+      ${linksHtml}
+      <div class="rec-actions">
+        <button class="btn btn-small btn-secondary" data-action="save-activity" data-uid="${uid}">Save for later</button>
+        <button class="btn btn-small btn-secondary" data-action="open-schedule" data-uid="${uid}">Schedule</button>
+        <button class="btn btn-small btn-primary" data-action="mark-done" data-uid="${uid}">I did this</button>
+        ${getMeThere}
+      </div>
+    </div>`;
+}
+
+const cardCache = {}; // uid -> activity object, so buttons can reference the right item
+
+function mockHours(id) {
+  const v = seededVariance(id + "hours", 1);
+  const openHour = 8 + Math.round(Math.abs(v) * 2);
+  const closeHour = 21 + Math.round(v);
+  return `Open ${openHour}:00–${Math.min(23, closeHour)}:00 today`;
+}
+
+// ---------------------------------------------------------------
+// QUICK SEARCH
+// ---------------------------------------------------------------
+function runQuickSearch(rawQuery) {
+  const query = rawQuery.trim().toLowerCase();
+  if (!query) return;
+  document.getElementById("quick-query-label").textContent = rawQuery.trim();
+
+  const tokens = query.split(/[^a-z]+/).filter(Boolean);
+  const locationGranted = state.permissions.location === true;
+
+  const scored = ACTIVITIES
+    .filter((a) => a.type !== "place" || locationGranted)
+    .map((a) => {
+      let score = 0;
+      const hay = `${a.title} ${a.category} ${a.description}`.toLowerCase();
+      if (hay.includes(query)) score += 40;
+      tokens.forEach((t) => {
+        if (a.category.includes(t) || a.title.toLowerCase().includes(t)) score += 18;
+        if (a.moods.includes(t)) score += 14;
+        if (t === "indoor" && a.setting === "indoor") score += 10;
+        if (t === "outdoor" && a.setting === "outdoor") score += 10;
+        const matchedInterest = INTERESTS.find((i) => i.id === t || i.label.toLowerCase() === t);
+        if (matchedInterest && a.interests.includes(matchedInterest.id)) score += 14;
+        if (t === "home" && a.type === "home") score += 12;
+        if ((t === "cheap" || t === "free") && a.maxCost === 0) score += 10;
+      });
+      score += a.rating * 2;
+      return { activity: a, score };
+    })
+    .filter((s) => s.score > 5)
+    .sort((a, b) => b.score - a.score);
+
+  let picks = pickDiverse(scored.map((s) => ({ activity: s.activity, score: s.score, reasons: [] })), 8);
+
+  if (picks.length === 0) {
+    // graceful fallback — never show a dead end
+    const fallback = ACTIVITIES.filter((a) => a.type !== "place" || locationGranted)
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 6)
+      .map((a) => ({ activity: a, score: a.rating * 10, reasons: [] }));
+    picks = fallback;
+  }
+
+  const list = document.getElementById("quick-results-list");
+  list.innerHTML = picks.map((p, idx) => recCardHtml(p, idx + 1)).join("");
+  showScreen("screen-quick-results");
+}
+
+// ---------------------------------------------------------------
+// SAVE / SCHEDULE / COMPLETE / FEEDBACK
+// ---------------------------------------------------------------
+function saveActivity(uid) {
+  const item = cardCache[uid];
+  if (!item) return;
+  state.saved.push({ uid: nextUid(), item });
+  toast("Saved for later");
+}
+
+function openScheduleModal(uid) {
+  state.pendingModalTarget = { uid, source: "card" };
+  document.getElementById("schedule-modal").classList.add("active");
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("schedule-date").value = today;
+  document.getElementById("schedule-time").value = "18:00";
+}
+
+function editSchedule(scheduleUid) {
+  const entry = state.scheduled.find((s) => s.uid === scheduleUid);
+  if (!entry) return;
+  state.pendingModalTarget = { uid: scheduleUid, source: "edit" };
+  document.getElementById("schedule-modal").classList.add("active");
+  document.getElementById("schedule-date").value = entry.date;
+  document.getElementById("schedule-time").value = entry.time;
+}
+
+function scheduleSavedItem(savedUid) {
+  const saved = state.saved.find((s) => s.uid === savedUid);
+  if (!saved) return;
+  state.pendingModalTarget = { uid: savedUid, source: "saved" };
+  document.getElementById("schedule-modal").classList.add("active");
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("schedule-date").value = today;
+  document.getElementById("schedule-time").value = "18:00";
+}
+
+function closeModal() {
+  document.getElementById("schedule-modal").classList.remove("active");
+  document.getElementById("feedback-modal").classList.remove("active");
+  state.pendingModalTarget = null;
+}
+
+function confirmSchedule() {
+  const date = document.getElementById("schedule-date").value;
+  const time = document.getElementById("schedule-time").value;
+  if (!date || !time || !state.pendingModalTarget) { closeModal(); return; }
+  const { uid, source } = state.pendingModalTarget;
+
+  if (source === "edit") {
+    const entry = state.scheduled.find((s) => s.uid === uid);
+    if (entry) { entry.date = date; entry.time = time; }
+  } else if (source === "saved") {
+    const idx = state.saved.findIndex((s) => s.uid === uid);
+    if (idx >= 0) {
+      const item = state.saved[idx].item;
+      state.saved.splice(idx, 1);
+      state.scheduled.push({ uid: nextUid(), item, date, time, completed: false });
+    }
+  } else {
+    const item = cardCache[uid];
+    if (item) state.scheduled.push({ uid: nextUid(), item, date, time, completed: false });
+  }
+  closeModal();
+  renderHome();
+  toast("Scheduled");
+}
+
+function removeSaved(uid) {
+  state.saved = state.saved.filter((s) => s.uid !== uid);
+  renderHome();
+}
+function removeScheduled(uid) {
+  state.scheduled = state.scheduled.filter((s) => s.uid !== uid);
+  renderHome();
+}
+
+function completeScheduled(uid) {
+  const entry = state.scheduled.find((s) => s.uid === uid);
+  if (!entry) return;
+  entry.completed = true;
+  state.pendingModalTarget = { uid, source: "scheduled-complete" };
+  document.getElementById("feedback-activity-label").textContent = entry.item.title;
+  document.getElementById("feedback-modal").classList.add("active");
+}
+
+function markDone(uid) {
+  const item = cardCache[uid];
+  if (!item) return;
+  state.pendingModalTarget = { uid, source: "card-complete", item };
+  document.getElementById("feedback-activity-label").textContent = item.title;
+  document.getElementById("feedback-modal").classList.add("active");
+}
+
+function repeatActivity(recentUid) {
+  const entry = state.recent.find((r) => r.uid === recentUid);
+  if (!entry) return;
+  runQuickSearch(entry.item.title);
+}
+
+function submitFeedback(score) {
+  if (!state.pendingModalTarget) return;
+  const { source, uid } = state.pendingModalTarget;
+  let item;
+  if (source === "scheduled-complete") {
+    const entry = state.scheduled.find((s) => s.uid === uid);
+    item = entry && entry.item;
+  } else {
+    item = state.pendingModalTarget.item || cardCache[uid];
+  }
+  if (item) {
+    state.feedbackByCategory[item.category] = (state.feedbackByCategory[item.category] || 0) + Number(score);
+    state.recent.push({ uid: nextUid(), item, completedAt: Date.now(), feedback: Number(score) });
+  }
+  closeModal();
+  renderHome();
+  toast("Thanks — that'll shape future recommendations");
+}
+
+// ---------------------------------------------------------------
+// UTILITIES
+// ---------------------------------------------------------------
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function formatDate(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+function formatTime(t) {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+function formatRelative(ts) {
+  const diffMin = Math.round((Date.now() - ts) / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  return `${Math.round(diffH / 24)}d ago`;
+}
+
+let toastTimer = null;
+function toast(msg) {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:999px;font-size:0.85rem;z-index:100;transition:opacity .3s ease;`;
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = "1";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.opacity = "0"; }, 1800);
+}
+
+// ---------------------------------------------------------------
+// EVENT DELEGATION
+// ---------------------------------------------------------------
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const action = btn.dataset.action;
+
+  switch (action) {
+    case "begin-questionnaire": beginQuestionnaire(); break;
+    case "grant": decidePermission(btn.dataset.perm, true); break;
+    case "deny": decidePermission(btn.dataset.perm, false); break;
+    case "continue-to-questionnaire": renderQuestionnaire(); break;
+    case "toggle-chip": handleChipToggle(btn); break;
+    case "step": handleStep(btn.dataset.target, btn.dataset.delta); break;
+    case "next-step": nextStep(); break;
+    case "prev-step": prevStep(); break;
+    case "finish-questionnaire": finishQuestionnaire(); break;
+    case "go-home": showScreen("screen-home"); renderHome(); break;
+    case "save-activity": saveActivity(btn.dataset.uid); break;
+    case "open-schedule": openScheduleModal(btn.dataset.uid); break;
+    case "edit-schedule": editSchedule(btn.dataset.uid); break;
+    case "schedule-saved": scheduleSavedItem(btn.dataset.uid); break;
+    case "confirm-schedule": confirmSchedule(); break;
+    case "close-modal": closeModal(); break;
+    case "remove-saved": removeSaved(btn.dataset.uid); break;
+    case "remove-scheduled": removeScheduled(btn.dataset.uid); break;
+    case "complete-scheduled": completeScheduled(btn.dataset.uid); break;
+    case "mark-done": markDone(btn.dataset.uid); break;
+    case "repeat-activity": repeatActivity(btn.dataset.uid); break;
+    case "feedback": submitFeedback(btn.dataset.score); break;
+  }
+});
+
+document.getElementById("quick-search-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("quick-search-input");
+  runQuickSearch(input.value);
+});
+
+// ---------------------------------------------------------------
+// INIT
+// ---------------------------------------------------------------
+setGlow(DEFAULT_COLORS.accent, DEFAULT_COLORS.accent2);
+renderHome();
+
+</script>
+</body>
+</html>
